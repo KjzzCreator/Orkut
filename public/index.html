@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Orkut - Perfil</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="header">
+    <h1>orkut</h1>
+    <div>
+      <span id="welcomeUser"></span> | 
+      <a href="#" onclick="localStorage.clear(); location.href='login.html';" style="color:white;">Sair</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+      <h3>Perfil</h3>
+      <p><b>Nome:</b> <span id="profileName"></span></p>
+      <p><b>Nick:</b> <span id="profileNick"></span></p>
+      
+      <h4>Amigos (<span id="friendCount">0</span>)</h4>
+      <ul id="friendsList" style="padding-left: 15px; font-size: 13px;"></ul>
+      
+      <input type="text" id="friendNickInput" placeholder="Nick do amigo">
+      <button onclick="addFriend()">Adicionar Amigo</button>
+    </div>
+
+    <div class="main-content">
+      <h2>Mural de Recados (Scraps)</h2>
+      <textarea id="scrapMsg" placeholder="Deixe um recado..."></textarea>
+      <button onclick="sendScrap()">Enviar Recado</button>
+      
+      <div class="scraps-box" id="scrapsContainer"></div>
+
+      <hr style="margin: 20px 0;">
+
+      <h2>Chat Global de Recados / Bate-papo</h2>
+      <div class="chat-box" id="chatMessages" style="height: 150px;"></div>
+      <input type="text" id="chatInput" placeholder="Digite sua mensagem...">
+      <button onclick="sendMessage()">Enviar no Chat</button>
+    </div>
+  </div>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('orkut_user'));
+    if (!user) window.location.href = 'login.html';
+
+    document.getElementById('welcomeUser').innerText = `Olá, ${user.name}`;
+    
+    let currentProfileNick = user.nick;
+
+    async function loadProfile(nick) {
+      const res = await fetch(`/api/user/${nick}`);
+      const data = await res.json();
+      
+      document.getElementById('profileName').innerText = data.name;
+      document.getElementById('profileNick').innerText = data.nick;
+      document.getElementById('friendCount').innerText = data.friends.length;
+      
+      const friendsList = document.getElementById('friendsList');
+      friendsList.innerHTML = data.friends.map(f => `<li><a href="#" onclick="loadProfile('${f}')">${f}</a></li>`).join('');
+
+      const scrapsContainer = document.getElementById('scrapsContainer');
+      scrapsContainer.innerHTML = data.scraps.map(s => `
+        <div style="border-bottom: 1px dashed #ccc; margin-bottom: 5px;">
+          <b><a href="#" onclick="loadProfile('${s.authorNick}')">${s.authorNick}</a>:</b> ${s.message} <span style="font-size:10px; color:#777;">(${s.date})</span>
+        </div>
+      `).join('');
+    }
+
+    async function sendScrap() {
+      const message = document.getElementById('scrapMsg').value;
+      if (!message) return;
+      await fetch('/api/scrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetNick: currentProfileNick, authorNick: user.nick, message })
+      });
+      document.getElementById('scrapMsg').value = '';
+      loadProfile(currentProfileNick);
+    }
+
+    async function addFriend() {
+      const friendNick = document.getElementById('friendNickInput').value;
+      if (!friendNick) return;
+      const res = await fetch('/api/friend/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userNick: user.nick, friendNick })
+      });
+      const data = await res.json();
+      if(data.success) {
+        alert('Amigo adicionado!');
+        document.getElementById('friendNickInput').value = '';
+        loadProfile(user.nick);
+      } else {
+        alert(data.error);
+      }
+    }
+
+    // Configuração do Chat Socket.io
+    const socket = io();
+    const room = 'orkut-global';
+    socket.emit('join_room', room);
+
+    function sendMessage() {
+      const text = document.getElementById('chatInput').value;
+      if(!text) return;
+      socket.emit('send_message', { room, author: user.nick, text });
+      document.getElementById('chatInput').value = '';
+    }
+
+    socket.on('receive_message', (data) => {
+      const chatBox = document.getElementById('chatMessages');
+      chatBox.innerHTML += `<div><b>${data.author}:</b> ${data.text}</div>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    loadProfile(user.nick);
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Orkut - Registro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div style="width: 350px; margin: 80px auto; background: white; padding: 20px; border: 1px solid #acc0e9;">
+    <h2>Criar nova conta</h2>
+    <form id="registerForm">
+      <input type="text" id="name" placeholder="Nome Completo" required>
+      <input type="text" id="nick" placeholder="Apelido (Nick único)" required>
+      <input type="email" id="email" placeholder="E-mail" required>
+      <input type="password" id="password" placeholder="Senha" required>
+      <button type="submit">Cadastrar</button>
+    </form>
+    <p>Já tem uma conta? <a href="login.html">Faça login</a></p>
+  </div>
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('name').value,
+          nick: document.getElementById('nick').value,
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Cadastrado com sucesso!');
+        window.location.href = 'login.html';
+      } else {
+        alert(data.error);
+      }
+    });
+  </script>
+</body>
+</html>

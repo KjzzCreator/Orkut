@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Orkut - Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div style="width: 350px; margin: 100px auto; background: white; padding: 20px; border: 1px solid #acc0e9;">
+    <h2>Orkut Login</h2>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="E-mail" required>
+      <input type="password" id="password" placeholder="Senha" required>
+      <button type="submit">Entrar</button>
+    </form>
+    <p>Ainda não tem conta? <a href="register.html">Cadastre-se</a></p>
+  </div>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('orkut_user', JSON.stringify(data.user));
+        window.location.href = 'index.html';
+      } else {
+        alert(data.error);
+      }
+    });
+  </script>
+</body>
+</html>
