@@ -1,7 +1,7 @@
 {
-  "name": "orkut-clone",
-  "version": "1.0.0",
-  "description": "Orkut clone with Node.js, SQLite, and Socket.io",
+  "name": "orkut",
+  "version": "2.0.0",
+  "description": "Classic Orkut is back",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
