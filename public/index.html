@@ -1,74 +1,121 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <title>Orkut - Perfil</title>
+  <title>Orkut</title>
   <link rel="stylesheet" href="style.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+  <div class="top-bar">
+    <span><b id="userHeaderName"></b></span>
+    <span><a href="#" onclick="localStorage.clear(); location.href='login.html';" style="color:white;">Sair</a></span>
+  </div>
   <div class="header">
-    <h1>orkut</h1>
-    <div>
-      <span id="welcomeUser"></span> | 
-      <a href="#" onclick="localStorage.clear(); location.href='login.html';" style="color:white;">Sair</a>
-    </div>
+    <span class="logo">orkut</span>
+  </div>
+  <div class="menu-tabs">
+    <a href="#" class="active">página inicial</a>
+    <a href="#" onclick="loadProfile(currentUser.nick)">perfil</a>
+    <a href="#" onclick="toggleCommunities()">comunidades</a>
   </div>
 
   <div class="container">
     <div class="sidebar">
-      <h3>Perfil</h3>
-      <p><b>Nome:</b> <span id="profileName"></span></p>
+      <h3><b><span id="profileName"></span></b></h3>
       <p><b>Nick:</b> <span id="profileNick"></span></p>
       
       <h4>Amigos (<span id="friendCount">0</span>)</h4>
-      <ul id="friendsList" style="padding-left: 15px; font-size: 13px;"></ul>
-      
+      <ul id="friendsList" style="padding-left: 15px; font-size: 12px;"></ul>
       <input type="text" id="friendNickInput" placeholder="Nick do amigo">
       <button onclick="addFriend()">Adicionar Amigo</button>
+
+      <h4>Comunidades (<span id="commCount">0</span>)</h4>
+      <ul id="commList" style="padding-left: 15px; font-size: 12px;"></ul>
     </div>
 
-    <div class="main-content">
+    <div class="main-content" id="mainArea">
       <h2>Mural de Recados (Scraps)</h2>
-      <textarea id="scrapMsg" placeholder="Deixe um recado..."></textarea>
+      <textarea id="scrapMsg" placeholder="Escreva um recado..."></textarea>
       <button onclick="sendScrap()">Enviar Recado</button>
-      
-      <div class="scraps-box" id="scrapsContainer"></div>
+      <div class="box" id="scrapsContainer"></div>
 
-      <hr style="margin: 20px 0;">
-
-      <h2>Chat Global de Recados / Bate-papo</h2>
-      <div class="chat-box" id="chatMessages" style="height: 150px;"></div>
-      <input type="text" id="chatInput" placeholder="Digite sua mensagem...">
+      <h3 style="margin-top: 25px;">Bate-papo Global</h3>
+      <div class="box" id="chatMessages" style="height: 120px; overflow-y: auto;"></div>
+      <input type="text" id="chatInput" placeholder="Escrever mensagem...">
       <button onclick="sendMessage()">Enviar no Chat</button>
     </div>
   </div>
 
   <script>
-    const user = JSON.parse(localStorage.getItem('orkut_user'));
-    if (!user) window.location.href = 'login.html';
+    const currentUser = JSON.parse(localStorage.getItem('orkut_user'));
+    if (!currentUser) window.location.href = 'login.html';
+    document.getElementById('userHeaderName').innerText = currentUser.name;
 
-    document.getElementById('welcomeUser').innerText = `Olá, ${user.name}`;
-    
-    let currentProfileNick = user.nick;
+    let viewingNick = currentUser.nick;
 
     async function loadProfile(nick) {
+      viewingNick = nick;
       const res = await fetch(`/api/user/${nick}`);
       const data = await res.json();
       
       document.getElementById('profileName').innerText = data.name;
       document.getElementById('profileNick').innerText = data.nick;
       document.getElementById('friendCount').innerText = data.friends.length;
-      
-      const friendsList = document.getElementById('friendsList');
-      friendsList.innerHTML = data.friends.map(f => `<li><a href="#" onclick="loadProfile('${f}')">${f}</a></li>`).join('');
+      document.getElementById('commCount').innerText = data.communities.length;
 
-      const scrapsContainer = document.getElementById('scrapsContainer');
-      scrapsContainer.innerHTML = data.scraps.map(s => `
-        <div style="border-bottom: 1px dashed #ccc; margin-bottom: 5px;">
-          <b><a href="#" onclick="loadProfile('${s.authorNick}')">${s.authorNick}</a>:</b> ${s.message} <span style="font-size:10px; color:#777;">(${s.date})</span>
+      document.getElementById('friendsList').innerHTML = data.friends.map(f => `<li><a href="#" onclick="loadProfile('${f}')">${f}</a></li>`).join('');
+      document.getElementById('commList').innerHTML = data.communities.map(c => `<li>${c.name}</li>`).join('');
+
+      document.getElementById('scrapsContainer').innerHTML = data.scraps.map(s => `
+        <div style="border-bottom: 1px dashed #ccc; margin-bottom: 5px; font-size: 12px;">
+          <b><a href="#" onclick="loadProfile('${s.authorNick}')">${s.authorNick}</a>:</b> ${s.message} <span style="font-size:10px; color:#666;">(${s.date})</span>
         </div>
       `).join('');
+    }
+
+    async function toggleCommunities() {
+      const res = await fetch('/api/communities');
+      const comms = await res.json();
+      
+      document.getElementById('mainArea').innerHTML = `
+        <h2>Comunidades</h2>
+        <h3>Criar Nova Comunidade</h3>
+        <input type="text" id="cName" placeholder="Nome da Comunidade">
+        <textarea id="cDesc" placeholder="Descrição"></textarea>
+        <button onclick="createCommunity()">Criar</button>
+        <hr>
+        <h3>Comunidades Existentes</h3>
+        <div>${comms.map(c => `
+          <div class="box">
+            <b>${c.name}</b> (${c.members.length} membros)<br>
+            <p style="font-size:11px;">${c.description}</p>
+            <button onclick="joinCommunity(${c.id})">Entrar na Comunidade</button>
+          </div>
+        `).join('')}</div>
+      `;
+    }
+
+    async function createCommunity() {
+      const name = document.getElementById('cName').value;
+      const description = document.getElementById('cDesc').value;
+      if (!name) return alert('Dê um nome!');
+      await fetch('/api/community/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, category: 'Geral', ownerNick: currentUser.nick })
+      });
+      toggleCommunities();
+    }
+
+    async function joinCommunity(id) {
+      await fetch('/api/community/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ communityId: id, userNick: currentUser.nick })
+      });
+      alert('Entrou na comunidade com sucesso!');
+      loadProfile(currentUser.nick);
     }
 
     async function sendScrap() {
@@ -77,10 +124,10 @@
       await fetch('/api/scrap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetNick: currentProfileNick, authorNick: user.nick, message })
+        body: JSON.stringify({ targetNick: viewingNick, authorNick: currentUser.nick, message })
       });
       document.getElementById('scrapMsg').value = '';
-      loadProfile(currentProfileNick);
+      loadProfile(viewingNick);
     }
 
     async function addFriend() {
@@ -89,37 +136,28 @@
       const res = await fetch('/api/friend/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userNick: user.nick, friendNick })
+        body: JSON.stringify({ userNick: currentUser.nick, friendNick })
       });
       const data = await res.json();
-      if(data.success) {
-        alert('Amigo adicionado!');
-        document.getElementById('friendNickInput').value = '';
-        loadProfile(user.nick);
-      } else {
-        alert(data.error);
-      }
+      if (data.success) { alert('Amigo adicionado!'); loadProfile(currentUser.nick); }
+      else { alert(data.error); }
     }
 
-    // Configuração do Chat Socket.io
     const socket = io();
-    const room = 'orkut-global';
-    socket.emit('join_room', room);
-
+    socket.emit('join_room', 'global');
     function sendMessage() {
       const text = document.getElementById('chatInput').value;
-      if(!text) return;
-      socket.emit('send_message', { room, author: user.nick, text });
+      if (!text) return;
+      socket.emit('send_message', { room: 'global', author: currentUser.nick, text });
       document.getElementById('chatInput').value = '';
     }
-
     socket.on('receive_message', (data) => {
-      const chatBox = document.getElementById('chatMessages');
-      chatBox.innerHTML += `<div><b>${data.author}:</b> ${data.text}</div>`;
-      chatBox.scrollTop = chatBox.scrollHeight;
+      const box = document.getElementById('chatMessages');
+      box.innerHTML += `<div style="font-size:12px;"><b>${data.author}:</b> ${data.text}</div>`;
+      box.scrollTop = box.scrollHeight;
     });
 
-    loadProfile(user.nick);
+    loadProfile(currentUser.nick);
   </script>
 </body>
 </html>
