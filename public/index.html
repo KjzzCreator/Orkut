@@ -14,16 +14,23 @@
   <div class="header">
     <span class="logo">orkut</span>
   </div>
+  
   <div class="menu-tabs">
-    <a href="#" class="active">página inicial</a>
-    <a href="#" onclick="loadProfile(currentUser.nick)">perfil</a>
-    <a href="#" onclick="toggleCommunities()">comunidades</a>
+    <a href="#" onclick="goHome()" id="tabHome">página inicial</a>
+    <a href="#" onclick="loadProfile(currentUser.nick)" id="tabProfile">perfil</a>
+    <a href="#" onclick="loadScrapsPage()" id="tabScraps">scraps</a>
+    <a href="#" onclick="toggleCommunities()" id="tabComms">comunidades</a>
   </div>
 
   <div class="container">
     <div class="sidebar">
+      <div style="text-align: center; margin-bottom: 10px;">
+        <img id="profileImg" src="" style="width: 100px; height: 100px; object-fit: cover; border: 1px solid #b2c4db;">
+        <br>
+        <button onclick="changePhoto()" style="font-size: 10px; margin-top: 5px;">Alterar Foto</button>
+      </div>
       <h3><b><span id="profileName"></span></b></h3>
-      <p><b>Nick:</b> <span id="profileNick"></span></p>
+      <p style="font-size: 11px;"><b>Nick:</b> <span id="profileNick"></span></p>
       
       <h4>Amigos (<span id="friendCount">0</span>)</h4>
       <ul id="friendsList" style="padding-left: 15px; font-size: 12px;"></ul>
@@ -35,15 +42,7 @@
     </div>
 
     <div class="main-content" id="mainArea">
-      <h2>Mural de Recados (Scraps)</h2>
-      <textarea id="scrapMsg" placeholder="Escreva um recado..."></textarea>
-      <button onclick="sendScrap()">Enviar Recado</button>
-      <div class="box" id="scrapsContainer"></div>
-
-      <h3 style="margin-top: 25px;">Bate-papo Global</h3>
-      <div class="box" id="chatMessages" style="height: 120px; overflow-y: auto;"></div>
-      <input type="text" id="chatInput" placeholder="Escrever mensagem...">
-      <button onclick="sendMessage()">Enviar no Chat</button>
+      <!-- Conteúdo dinâmico carregado via JS -->
     </div>
   </div>
 
@@ -54,56 +53,140 @@
 
     let viewingNick = currentUser.nick;
 
+    function setActiveTab(tabId) {
+      document.querySelectorAll('.menu-tabs a').forEach(a => a.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    function goHome() {
+      setActiveTab('tabHome');
+      loadProfile(currentUser.nick);
+    }
+
     async function loadProfile(nick) {
+      setActiveTab('tabProfile');
       viewingNick = nick;
       const res = await fetch(`/api/user/${nick}`);
       const data = await res.json();
       
       document.getElementById('profileName').innerText = data.name;
       document.getElementById('profileNick').innerText = data.nick;
+      document.getElementById('profileImg').src = data.photo || 'https://via.placeholder.com/150';
       document.getElementById('friendCount').innerText = data.friends.length;
       document.getElementById('commCount').innerText = data.communities.length;
 
       document.getElementById('friendsList').innerHTML = data.friends.map(f => `<li><a href="#" onclick="loadProfile('${f}')">${f}</a></li>`).join('');
-      document.getElementById('commList').innerHTML = data.communities.map(c => `<li>${c.name}</li>`).join('');
+      document.getElementById('commList').innerHTML = data.communities.map(c => `<li><a href="#" onclick="loadCommunityDetails(${c.id})">${c.name}</a></li>`).join('');
 
-      document.getElementById('scrapsContainer').innerHTML = data.scraps.map(s => `
-        <div style="border-bottom: 1px dashed #ccc; margin-bottom: 5px; font-size: 12px;">
-          <b><a href="#" onclick="loadProfile('${s.authorNick}')">${s.authorNick}</a>:</b> ${s.message} <span style="font-size:10px; color:#666;">(${s.date})</span>
+      document.getElementById('mainArea').innerHTML = `
+        <h2>Mural de Recados (Scraps) de ${data.name}</h2>
+        <textarea id="scrapMsg" placeholder="Escreva um recado..."></textarea>
+        <input type="text" id="scrapMedia" placeholder="Link de imagem ou vídeo (YouTube/MP4 opcional)">
+        <button onclick="sendScrap()">Enviar Recado</button>
+        <div class="box" id="scrapsContainer">
+          ${data.scraps.map(s => `
+            <div style="border-bottom: 1px dashed #ccc; margin-bottom: 8px; padding-bottom: 5px; font-size: 12px;">
+              <b><a href="#" onclick="loadProfile('${s.authorNick}')">${s.authorNick}</a>:</b> ${s.message}${s.mediaUrl ? `<br><img src="${s.mediaUrl}" style="max-width: 200px; display:block; margin-top:5px;" onerror="this.style.display='none'">` : ''}
+              <span style="font-size:10px; color:#666; display:block;">(${s.date})</span>
+            </div>
+          `).join('')}
         </div>
-      `).join('');
+
+        <h3 style="margin-top: 25px;">Bate-papo Global</h3>
+        <div class="box" id="chatMessages" style="height: 120px; overflow-y: auto;"></div>
+        <input type="text" id="chatInput" placeholder="Escrever mensagem...">
+        <button onclick="sendMessage()">Enviar no Chat</button>
+      `;
+    }
+
+    function loadScrapsPage() {
+      setActiveTab('tabScraps');
+      loadProfile(currentUser.nick);
+    }
+
+    async function changePhoto() {
+      const url = prompt('Insira o link da sua nova foto de perfil:');
+      if (!url) return;
+      await fetch('/api/user/photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nick: currentUser.nick, photo: url })
+      });
+      loadProfile(currentUser.nick);
     }
 
     async function toggleCommunities() {
+      setActiveTab('tabComms');
       const res = await fetch('/api/communities');
       const comms = await res.json();
       
       document.getElementById('mainArea').innerHTML = `
         <h2>Comunidades</h2>
-        <h3>Criar Nova Comunidade</h3>
-        <input type="text" id="cName" placeholder="Nome da Comunidade">
-        <textarea id="cDesc" placeholder="Descrição"></textarea>
-        <button onclick="createCommunity()">Criar</button>
-        <hr>
-        <h3>Comunidades Existentes</h3>
+        <div class="box" style="margin-bottom: 15px;">
+          <h3>Criar Nova Comunidade</h3>
+          <input type="text" id="cName" placeholder="Nome da Comunidade">
+          <textarea id="cDesc" placeholder="Descrição"></textarea>
+          <input type="text" id="cPhoto" placeholder="Link da foto/ícone da comunidade">
+          <input type="text" id="cCategory" placeholder="Categoria (ex: Outros, Música)">
+          <input type="text" id="cLocation" placeholder="Local (ex: Rio de Janeiro, RJ)">
+          <button onclick="createCommunity()">Criar Comunidade</button>
+        </div>
+        <h3>Lista de Comunidades</h3>
         <div>${comms.map(c => `
-          <div class="box">
-            <b>${c.name}</b> (${c.members.length} membros)<br>
-            <p style="font-size:11px;">${c.description}</p>
-            <button onclick="joinCommunity(${c.id})">Entrar na Comunidade</button>
+          <div class="box" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+            <img src="${c.photo}" style="width: 50px; height: 50px; object-fit: cover;">
+            <div>
+              <a href="#" onclick="loadCommunityDetails(${c.id})" style="font-weight:bold; font-size: 13px;">${c.name}</a> (${c.members.length} membros)<br>
+              <span style="font-size: 11px; color: #555;">${c.description.substring(0, 80)}...</span>
+            </div>
           </div>
         `).join('')}</div>
+      `;
+    }
+
+    async function loadCommunityDetails(id) {
+      setActiveTab('tabComms');
+      const res = await fetch('/api/communities');
+      const comms = await res.json();
+      const c = comms.find(comm => comm.id === id);
+      if (!c) return;
+
+      document.getElementById('mainArea').innerHTML = `
+        <div style="display: flex; gap: 15px; align-items: flex-start;">
+          <img src="${c.photo}" style="width: 120px; height: 120px; object-fit: cover; border: 1px solid #b2c4db;">
+          <div>
+            <h2 style="margin: 0;">${c.name}</h2>
+            <p style="font-size: 11px; color: #666; margin: 2px 0;">${c.members.length} membros</p>
+            <button onclick="joinCommunity(${c.id})" style="margin-top: 5px;">Participar da comunidade</button>
+          </div>
+        </div>
+        <div class="box" style="margin-top: 15px; font-size: 12px; line-height: 1.5;">
+          <h3 style="font-size: 13px; background: #d8e4f1; padding: 4px; margin-top:0;">Comunidade ${c.type}</h3>
+          <p><b>idioma:</b> ${c.language}</p>
+          <p><b>categoria:</b> ${c.category}</p>
+          <p><b>tipo:</b> ${c.type}</p>
+          <p><b>criada em:</b> ${c.created_date}</p>
+          <p><b>local:</b> ${c.location}</p>
+          <p><b>proprietário:</b> ${c.owner_nick} (Moderador)</p>
+          <hr style="border: 0; border-top: 1px solid #ccc;">
+          <p><b>Sobre:</b> ${c.description}</p>
+        </div>
+        <button onclick="toggleCommunities()">Voltar para Comunidades</button>
       `;
     }
 
     async function createCommunity() {
       const name = document.getElementById('cName').value;
       const description = document.getElementById('cDesc').value;
-      if (!name) return alert('Dê um nome!');
+      const photo = document.getElementById('cPhoto').value;
+      const category = document.getElementById('cCategory').value || 'Outros';
+      const location = document.getElementById('cLocation').value || 'Brasil';
+      if (!name) return alert('Dê um nome à comunidade!');
+
       await fetch('/api/community/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, category: 'Geral', ownerNick: currentUser.nick })
+        body: JSON.stringify({ name, description, category, language: 'Português (Brasil)', type: 'pública', location, ownerNick: currentUser.nick, photo })
       });
       toggleCommunities();
     }
@@ -115,18 +198,18 @@
         body: JSON.stringify({ communityId: id, userNick: currentUser.nick })
       });
       alert('Entrou na comunidade com sucesso!');
-      loadProfile(currentUser.nick);
+      loadCommunityDetails(id);
     }
 
     async function sendScrap() {
       const message = document.getElementById('scrapMsg').value;
-      if (!message) return;
+      const mediaUrl = document.getElementById('scrapMedia').value;
+      if (!message && !mediaUrl) return;
       await fetch('/api/scrap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetNick: viewingNick, authorNick: currentUser.nick, message })
+        body: JSON.stringify({ targetNick: viewingNick, authorNick: currentUser.nick, message, mediaUrl })
       });
-      document.getElementById('scrapMsg').value = '';
       loadProfile(viewingNick);
     }
 
@@ -153,8 +236,10 @@
     }
     socket.on('receive_message', (data) => {
       const box = document.getElementById('chatMessages');
-      box.innerHTML += `<div style="font-size:12px;"><b>${data.author}:</b> ${data.text}</div>`;
-      box.scrollTop = box.scrollHeight;
+      if (box) {
+        box.innerHTML += `<div style="font-size:12px;"><b>${data.author}:</b> ${data.text}</div>`;
+        box.scrollTop = box.scrollHeight;
+      }
     });
 
     loadProfile(currentUser.nick);
