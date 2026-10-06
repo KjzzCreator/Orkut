@@ -1,19 +1,24 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
   <meta charset="UTF-8">
   <title>Orkut - Login</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div style="width: 350px; margin: 100px auto; background: white; padding: 20px; border: 1px solid #acc0e9;">
-    <h2>Orkut Login</h2>
+  <div style="text-align: center; margin-top: 50px;">
+    <span class="logo">orkut</span>
+  </div>
+  <div style="width: 320px; margin: 20px auto; background: white; padding: 20px; border: 1px solid #a6b9df;">
+    <h3>Aceder ao Orkut</h3>
     <form id="loginForm">
-      <input type="email" id="email" placeholder="E-mail" required>
-      <input type="password" id="password" placeholder="Senha" required>
-      <button type="submit">Entrar</button>
+      <label>E-mail:</label>
+      <input type="email" id="email" required>
+      <label>Senha:</label>
+      <input type="password" id="password" required>
+      <button type="submit" style="width:100%; margin-top:10px;">Entrar</button>
     </form>
-    <p>Ainda não tem conta? <a href="register.html">Cadastre-se</a></p>
+    <p style="font-size: 12px; margin-top: 15px;">Ainda não tem conta? <a href="register.html">Registe-se já</a></p>
   </div>
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -21,18 +26,13 @@
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: document.getElementById('email').value,
-          password: document.getElementById('password').value
-        })
+        body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value })
       });
       const data = await res.json();
       if (data.success) {
         localStorage.setItem('orkut_user', JSON.stringify(data.user));
         window.location.href = 'index.html';
-      } else {
-        alert(data.error);
-      }
+      } else { alert(data.error); }
     });
   </script>
 </body>
